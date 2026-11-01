@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Ensure host file descriptor limit allows high-concurrency client connections
+ulimit -n 65535 2>/dev/null || true
+
 MODE="${1:-throughput}"
 TARGET_URL="${2:-http://127.0.0.1:8081/ping}"
 DURATION="${3:-10s}"

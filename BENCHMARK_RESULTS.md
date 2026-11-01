@@ -157,6 +157,31 @@ Transfer/sec:      6.34MB
 
 ---
 
+## The Breaking Point & Limit Analysis (1,000 to 10,000 Connections)
+
+To determine where each architecture stagnates or gets killed under our strict **1.0 CPU Core** and **128MB RAM** container constraints, we ran an escalating stress test from 1,000 up to 10,000 concurrent connections:
+
+| Concurrency Tier | `Variant A: net/http` | `Variant B: epoll` | `Variant C: io_uring` | Failure Mode / Limiting Factor |
+|:---|:---|:---|:---|:---|
+| **1,000 conns** | 26,482 RPS (38.8 MB RAM) | 69,307 RPS (3.2 MB RAM) | **72,223 RPS** (4.1 MB RAM) | All healthy |
+| **2,000 conns** | 26,512 RPS (68.6 MB RAM) | 68,100 RPS (3.4 MB RAM) | **70,400 RPS** (4.6 MB RAM) | `net/http` hits 53% memory cap |
+| **3,000 conns** | 27,528 RPS (98.9 MB RAM) | 62,500 RPS (3.4 MB RAM) | **65,200 RPS** (4.8 MB RAM) | `net/http` hits 77% memory cap |
+| **4,000 conns** | **OOMKILLED (ExitCode: 137)** | **57,026 RPS** (3.5 MB RAM) | **47,150 RPS** (5.2 MB RAM) | **`net/http` DEAD** (Goroutine stack exhaustion) |
+| **8,000 conns** | *Dead* | **56,080 RPS** (4.8 MB RAM) | **55,273 RPS** (~8 MB RAM) | Both epoll and io_uring thrive |
+| **10,000 conns (C10K)** | *Dead* | **48,567 RPS** (**6.8 MB RAM**) | **44,469 RPS** (**12.9 MB RAM**) | CPU starvation ceiling (~10k conns on 1 core) |
+| **20,000 conns** | *Dead* | 2,225 RPS (CPU saturated, timeouts) | Saturated | 1 CPU core exhausted (Zero OOMKills) |
+
+### Key Breaking Point Takeaways:
+1. **`net/http` Hard Failure at ~3,500 Connections**:
+   * Each active connection in `net/http` requires an independent goroutine stack (~33MB per 1,000 conns).
+   * At 4,000 connections, memory crossed the 128MB cgroup threshold and the Linux kernel instantly **OOMKilled** the container (`OOMKilled: true, ExitCode: 137`).
+2. **`epoll` & `io_uring` Scaled Cleanly to C10K (10,000 Connections)**:
+   * Neither `epoll` nor `io_uring` ever exceeded **13 MB of RAM** even at 10,000 connections (less than 10% of the 128MB limit!).
+   * Both successfully handled C10K traffic (~45k–48k RPS) on a single CPU core without dropping sockets.
+   * At 20,000 connections, the single CPU core reached scheduling exhaustion (client timeouts), but memory remained rock solid and neither was OOMKilled.
+
+---
+
 ## Final Paradigm Verdict
 
 | Architecture | Strengths | Weaknesses | Best Use Case |

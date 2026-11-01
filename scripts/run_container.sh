@@ -33,6 +33,7 @@ docker run -d \
     --memory="$MEMORY" \
     --memory-swap="$MEMORY" \
     --security-opt seccomp=unconfined \
+    --ulimit nofile=65535:65535 \
     -p "${PORT}:8080" \
     "$IMAGE"
 

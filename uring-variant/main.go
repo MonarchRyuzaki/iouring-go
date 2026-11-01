@@ -61,13 +61,13 @@ const (
 	TagClose  uint64 = 4
 
 	// Maximum concurrent connection capacity pre-allocated in our buffer pool.
-	// 4096 connections * 1024 bytes buffer = ~4 MB RAM (well below 128MB limit).
-	MaxConnections = 4096
+	// 16384 connections * 1024 bytes buffer = ~16 MB RAM (well below 128MB limit).
+	MaxConnections = 16384
 	BufferSize     = 1024
 
-	// Queue depth: 1024 submission queue entries gives an ultra-deep queue capable
+	// Queue depth: 2048 submission queue entries gives an ultra-deep queue capable
 	// of handling massive wrk concurrency spikes without dropping submissions.
-	RingEntries = 1024
+	RingEntries = 2048
 )
 
 // ============================================================================
