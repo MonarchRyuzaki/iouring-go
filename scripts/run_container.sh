@@ -8,7 +8,7 @@
 set -euo pipefail
 
 IMAGE="${1:-uring-http:latest}"
-PORT="${2:-8080}"
+PORT="${2:-8081}"
 CPUS="${3:-1.0}"
 MEMORY="${4:-128m}"
 CONTAINER_NAME="uring-bench-target"
