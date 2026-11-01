@@ -101,6 +101,11 @@ Ramping concurrency from 1,000 to 10,000+ connections to discover the exact poin
    * At 100 connections, `io_uring` compressed P99 tail latency from **53.07 ms (`net/http`) down to 2.21 ms (a 24× improvement)**.
    * Eliminating runtime scheduler preemption and GC pressure prevents latency spikes in the 99th percentile.
 
+4. **Why `io_uring` Dipped Below `epoll` at 4,000 Connections (47.1k vs 57.0k RPS)**:
+   * **The Single-Shot Accept Bottleneck**: In `epoll`, the reactor executes an aggressive tight loop (`Accept4` until `EAGAIN`), draining all 4,000 handshakes from the kernel backlog in microseconds. In `io_uring`, our engine used single-shot `IORING_OP_ACCEPT`—accepting one connection per CQE cycle. When 4,000 connections connected at once, cycling the ring 4,000 times delayed connection establishment, causing 329 client ramp-up timeouts in `wrk`. *(This exact bottleneck inspired Jens Axboe to introduce `IORING_ACCEPT_MULTISHOT` in Linux 5.19)*.
+   * **Submission Queue Depth (2,048 vs. 4,000 Active Conns)**: With 4,000 simultaneous connections, each needing active I/O, the 2,048-slot SQ ring filled up mid-iteration, forcing synchronous emergency `Flush()` syscalls instead of a single clean batched enter per tick.
+   * **Kernel In-Flight State Tracking**: While `epoll` maintains a lightweight linked list of ready descriptors and reuses a single stack buffer, `io_uring` requires the kernel to manage in-flight asynchronous state structures (`struct io_kiocb`) for every single socket, adding CPU overhead on a single 1.0 CPU core.
+
 ---
 
 ## 7. Detailed Run Logs & Raw Telemetry Data
