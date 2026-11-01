@@ -14,14 +14,14 @@ To understand why `io_uring` was created, we must compare the two fundamentally 
 ├────────────────────────────────────────────────────────────────────────┤
 │ 1. Userspace asks kernel: "Which descriptors are ready for I/O?"       │
 │ 2. Kernel returns list of ready FDs via epoll_wait().                  │
-│ 3. Userspace must issue synchronous syscalls (read / write) per FD.   │
-│    --> Syscall Tax: Minimum 2N + 1 syscalls per N requests!           │
+│ 3. Userspace must issue synchronous syscalls (read / write) per FD.    │
+│    --> Syscall Tax: Minimum 2N + 1 syscalls per N requests!            │
 └────────────────────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────────────────┐
 │                       COMPLETION (io_uring)                            │
 ├────────────────────────────────────────────────────────────────────────┤
-│ 1. Userspace tells kernel: "Read 1KB from FD into this buffer."       │
+│ 1. Userspace tells kernel: "Read 1KB from FD into this buffer."        │
 │ 2. Kernel performs the I/O asynchronously in the background.           │
 │ 3. Kernel posts a completion notification: "Done: 1024 bytes read."    │
 │    --> Zero Syscall Execution: Shared memory rings eliminate syscalls. │
@@ -45,9 +45,9 @@ To understand why `io_uring` was created, we must compare the two fundamentally 
        USERSPACE                                    KERNEL
  ┌──────────────────────┐                   ┌──────────────────────┐
  │                      │                   │                      │
- │   SQ Tail (User +)   │ ────── mmap ────> │   SQ Head (Kernel +) │
+ │   SQ Tail (User +)   │ ────── mmap ────> │   SQ Head (Kernel -) │
  │                      │                   │                      │
- │   CQ Head (User +)   │ <───── mmap ───── │   CQ Tail (Kernel +) │
+ │   CQ Head (User -)   │ <───── mmap ───── │   CQ Tail (Kernel +) │
  │                      │                   │                      │
  └──────────────────────┘                   └──────────────────────┘
              ▲                                         │

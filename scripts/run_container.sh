@@ -32,6 +32,7 @@ docker run -d \
     --cpus="$CPUS" \
     --memory="$MEMORY" \
     --memory-swap="$MEMORY" \
+    --security-opt seccomp=unconfined \
     -p "${PORT}:8080" \
     "$IMAGE"
 
