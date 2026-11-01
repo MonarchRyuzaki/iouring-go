@@ -12,6 +12,7 @@ A comparative study and benchmark of three fundamental Linux networking architec
 
 * **[Problem Statement & Benchmark Spec](PROBLEM_STATEMENT.md)** — Architecture hypotheses, C10K test methodology, and metric vectors.
 * **[Linux Epoll Architecture & Systems Theory](EPOLL_THEORY.md)** — Deep dive into `struct eventpoll`, Red-Black trees, ready lists, interrupt callbacks, Level vs. Edge Triggering, and the "Double Syscall Tax".
+* **[io_uring Architecture & Asynchronous Completion Theory](URING_THEORY.md)** — Deep dive into `sys_io_uring_*`, shared memory rings (SQ/CQ), lock-free atomic coordination, and completion-based networking.
 * **[Benchmark Scorecard & Telemetry Results](BENCHMARK_RESULTS.md)** — Official containerized performance data across throughput, tail latency, memory growth, and context switches.
 
 ---
