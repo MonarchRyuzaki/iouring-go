@@ -233,4 +233,34 @@ When you run this container under 1,000 connections with a 128MB RAM cap:
    * Go runtime doesn't have to schedule and context-switch 1,000 goroutines across scheduler queues.
    * The kernel gives you the exact ready FDs, you service them sequentially, and you return to `epoll_wait()`.
 
-Read through this theory, and when you are ready, dive into [`epoll-variant/main.go`](file:///home/ryuzaki/Desktop/Projects/uring-go/epoll-variant/main.go) to wire up the syscalls!
+---
+
+## 9. The "Read-Once" vs. "Read-Until-EAGAIN" Dilemma
+
+A common question in reactor architectures is:  
+> *Should an active client socket be read in a loop until `EAGAIN`, or should we call `read()` once per event?*
+
+The answer depends strictly on whether you configure **Edge-Triggered (`EPOLLET`)** or **Level-Triggered (`EPOLLIN`)**:
+
+### A. Edge-Triggered (`EPOLLET`) $\to$ Loop is Mandatory
+* In ET mode, the kernel issues **only one event** when state transitions from empty to readable.
+* If a packet arrives with 2,000 bytes and you only call `read()` once for 1,024 bytes, the remaining 976 bytes sit in the kernel buffer.
+* Because no *new* data arrived, the kernel will **never** trigger another notification $\to$ **deadlock**.
+* **Verdict**: Under `EPOLLET`, you **must** loop `read()` until it returns `-1` with `EAGAIN` / `EWOULDBLOCK`.
+
+### B. Level-Triggered (LT / Default) $\to$ Read-Once is an Optimization
+* In LT mode, if unread bytes remain in the socket's receive buffer, the kernel **keeps the socket on the Ready List (`rdllist`)**.
+* On the next iteration of `epoll_wait()`, the kernel notifies you again automatically. You cannot deadlock.
+
+### C. The "Double Syscall Tax" of Looping in Level-Triggered Mode
+* A standard `GET /ping` HTTP/1.1 request is only **~100–150 bytes**.
+* Our stack buffer is **1,024 bytes**. The entire request is guaranteed to be consumed in a single `read()` call.
+* **If you loop until `EAGAIN`**:
+  1. `read(fd)` $\to$ returns 150 bytes.
+  2. `read(fd)` $\to$ returns `-1` (`EAGAIN`).
+* **The Cost**: You just executed **2 system calls per request** instead of 1. That second syscall is 100% wasted kernel overhead. At 30,000 requests/sec, that burns **30,000 unnecessary kernel roundtrips every second**!
+
+### D. The Single-Thread Starvation Hazard
+* On a single-threaded reactor, if a client sends a large payload (e.g. streaming file upload) and you run `for { unix.Read() }` until empty, that single connection **monopolizes the CPU**, starving all other 1,000 connections.
+* Production servers (Nginx, Redis) deliberately **cap the number of reads per event tick** to enforce fairness across connections.
+
