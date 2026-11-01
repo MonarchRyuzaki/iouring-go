@@ -1,6 +1,6 @@
-# Why Your Go Server Dies at 4,000 Connections (And How Linux io_uring Fixes It)
+# The Problem with Epoll (And How Linux io_uring Fixes It)
 
-*An empirical autopsy of Goroutines vs. Epoll vs. io_uring on a 1-core container with 128MB RAM.*
+*An empirical autopsy of the double syscall tax, kernel context switches, and the paradigm shift from readiness to completion.*
 
 ---
 
